@@ -7,7 +7,7 @@ window.SLIDES = [
     "year": "1900s → 2026",
     "layout": "cover",
     "images": [
-      "blob:http://localhost:8000/b8db9678-1a99-4881-a832-e2e18f1c650c"
+      "images/Craig-Baldwin-8-1024x1024.jpg"
     ],
     "refs": []
   },
@@ -175,7 +175,7 @@ window.SLIDES = [
     "year": "1977",
     "layout": "archive",
     "images": [
-      "blob:http://localhost:8000/4ef6569c-053f-434b-af66-7e20e27557e4"
+      "images/italy-77/fanzine-12.-groucho-organo-ufficiale-delle-kindertruppen-senza-data-archivio-marco-pezzi.jpg"
     ],
     "refs": [
       {
