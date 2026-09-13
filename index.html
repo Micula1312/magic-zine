@@ -6,13 +6,15 @@
   <title>Magic Zine — storia delle fanzine</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body class="edit-mode">
   <main id="app" class="presentation" aria-live="polite"></main>
 
   <div class="builder-bar">
     <button id="connectFolderBtn" class="builder-btn">COLLEGA CARTELLA</button>
+    <button id="modeBtn" class="builder-btn">PRESENT</button>
+    <button id="printBtn" class="builder-btn">PRINT / PDF</button>
     <button id="exportBtn" class="builder-btn">EXPORT SLIDES.JS</button>
-    <span id="builderStatus" class="builder-status">drop locale attivo</span>
+    <span id="builderStatus" class="builder-status">EDIT · testi e immagini modificabili</span>
   </div>
 
   <div class="hud">
@@ -21,6 +23,8 @@
     <button id="nextBtn" class="hud-btn" aria-label="Slide successiva">→</button>
     <button id="fullscreenBtn" class="hud-btn" aria-label="Fullscreen">⛶</button>
   </div>
+
+  <div id="printDeck" class="print-deck" aria-hidden="true"></div>
 
   <script src="slides.js"></script>
   <script src="app.js"></script>
