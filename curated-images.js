@@ -6,7 +6,11 @@ intro:[{src:'https://angeloferrillo.org/wp-content/uploads/2025/03/uk_and_us_zin
 counterculture:[{src:'https://images.wisconsinhistory.org/700007140003/0714000011-l.jpg',caption:'The Black Panther: Black Community News Service · stampa politica underground · 1970'}],
 punk:[{src:'https://upload.wikimedia.org/wikipedia/en/3/3f/Sniffin_glue_1_cover.jpg',caption:'Sniffin’ Glue · issue 1 · 1976'}],
 'punk-grammar':[{src:'https://angeloferrillo.org/wp-content/uploads/2025/03/1970s_fanzines_21224199545.jpg',caption:'Punk DIY · xerox, collage, lettering manuale'}],
-'italy-77':[{src:'https://www.arengario.it/wp-content/uploads/2022/03/A-TRAVERSO-febbraio-1977.jpg',caption:'A/traverso · Giornale per l’Autonomia · Bologna · 1977'}],
+'italy-77':[
+ {src:'https://www.arengario.it/wp-content/uploads/2022/03/A-TRAVERSO-febbraio-1977.jpg',caption:'A/traverso · Giornale per l’Autonomia · Bologna · 1977'},
+ {src:'https://www.slumberland.it/public/gallerie/pentothal_prima_tavola.jpg',caption:'Andrea Pazienza · Le straordinarie avventure di Pentothal · 1977 · Bologna'},
+ {src:'https://www.citebd.org/sites/default/files/styles/free_content/public/2023-09/4.-cannibale-n.3-juin-1977-troisiecme-numeuro-de-la-revue-dessins-de-mattioli-et-tamburini.jpeg?itok=vWn0bjTG',caption:'Cannibale · 1977 · rivista underground legata alla scena creativa del ’77'}
+],
 'xerox-culture':[{src:'https://commons.wikimedia.org/wiki/Special:Redirect/file/1989-1_Skintonic_Nummer_4_-_01.jpg',caption:'Skintonic n. 4 · 1989'}],
 networks:[{src:'https://rumorbooks.com/cdn/shop/files/Photo12-12-2023_43622pm.jpg?v=1702429782',caption:'Factsheet Five · no. 38'}],
 'graffiti-zines':[{src:'https://www.grafflibrary.com/media/12_oz_prophet_issue_1.jpg',caption:'12 Ounce Prophet · graffiti publishing · primi anni Novanta'},{src:'https://exhibitions.letterformarchive.org/mischief/media/pages/artworks/12oz-prophet-issue-3/4c375b74c4-1687912190/lfa_skillscollections_0302_001.jpg',caption:'12oz Prophet · issue 3 · 1995'}],
