@@ -12,6 +12,7 @@
 
   <div class="builder-bar">
     <button id="connectFolderBtn" class="builder-btn">COLLEGA CARTELLA</button>
+    <button id="saveAllBtn" class="builder-btn">SALVA TUTTO</button>
     <button id="modeBtn" class="builder-btn">PRESENT</button>
     <button id="printBtn" class="builder-btn">PRINT / PDF</button>
     <button id="exportBtn" class="builder-btn">EXPORT SLIDES.JS</button>
@@ -31,5 +32,50 @@
   <script src="app.js"></script>
   <script src="curated-images.js"></script>
   <script src="drop-replace.js"></script>
+  <script>
+    const saveAllBtn=document.querySelector('#saveAllBtn');
+    saveAllBtn.addEventListener('click',async()=>{
+      if(document.activeElement?.isContentEditable) document.activeElement.blur();
+      await new Promise(resolve=>setTimeout(resolve,80));
+      persistDraft();
+
+      if(!projectDir){
+        builderStatus.textContent='BOZZA SALVATA NEL BROWSER · collega la cartella per scrivere slides.js + immagini';
+        return;
+      }
+
+      saveAllBtn.disabled=true;
+      saveAllBtn.textContent='SALVO…';
+      try{
+        let moved=0;
+        for(const [slideId,items] of localMedia.entries()){
+          const slide=window.SLIDES.find(s=>s.id===slideId);
+          if(!slide) continue;
+          for(const item of items){
+            if(!item?.file) continue;
+            const path=await persistFile(slide,item.file);
+            slide.images=[...(slide.images||[]),path];
+            if(item.src?.startsWith('blob:')) URL.revokeObjectURL(item.src);
+            moved++;
+          }
+        }
+        localMedia.clear();
+        await writeSlidesFile();
+        persistDraft();
+        builderStatus.textContent=`SALVATO TUTTO ✓ · slides.js${moved?` · ${moved} immagini`:''}`;
+        saveAllBtn.textContent='SALVATO ✓';
+        render();
+        setTimeout(()=>{
+          saveAllBtn.textContent='SALVA TUTTO';
+          saveAllBtn.disabled=false;
+        },1400);
+      }catch(err){
+        console.error(err);
+        builderStatus.textContent='ERRORE SALVATAGGIO · controlla il permesso della cartella';
+        saveAllBtn.textContent='RIPROVA SALVA';
+        saveAllBtn.disabled=false;
+      }
+    });
+  </script>
 </body>
 </html>
