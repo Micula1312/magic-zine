@@ -1,7 +1,7 @@
 // Reliable image drop behavior:
 // - normal slides: drop ON an existing image => replace that exact image
-// - normal slides: drop anywhere else inside .slide-media => add image(s)
-// - cover: drop anywhere inside .slide-media => replace the single cover image
+// - normal slides: drop anywhere else on the slide => add image(s)
+// - cover: drop anywhere on the slide => replace the single cover image
 // This handler runs in capture phase and stops the older app.js drop handler,
 // so one drop can never trigger both add and replace.
 (function(){
@@ -53,13 +53,13 @@
   async function replaceCover(slide,file){
     const all=visibleSet(slide);
     if(!all.length){
-      await addFilesToArea(slide,[file]);
+      await addFilesToSlide(slide,[file]);
       return;
     }
     await replaceAt(slide,0,file);
   }
 
-  async function addFilesToArea(slide,files){
+  async function addFilesToSlide(slide,files){
     const valid=[...files].filter(file=>file.type.startsWith('image/'));
     if(!valid.length) return;
 
@@ -87,9 +87,9 @@
   }
 
   function targets(e){
-    const frame=e.target.closest?.('.slide-media');
+    const slideEl=e.target.closest?.('.slide');
     const media=e.target.closest?.('.media');
-    return {frame,media};
+    return {slideEl,media};
   }
 
   function cleanupTargets(){
@@ -100,8 +100,8 @@
 
   document.addEventListener('dragover',e=>{
     if(!editMode) return;
-    const {frame,media}=targets(e);
-    if(!frame) return;
+    const {slideEl,media}=targets(e);
+    if(!slideEl) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -110,21 +110,21 @@
     cleanupTargets();
 
     if(slide.layout==='cover'){
-      frame.classList.add('is-replace-target');
+      slideEl.classList.add('is-replace-target');
     }else if(media){
       media.classList.add('is-replace-target');
     }else{
-      frame.classList.add('is-add-target');
+      slideEl.classList.add('is-add-target');
     }
 
     if(e.dataTransfer) e.dataTransfer.dropEffect='copy';
   },true);
 
   document.addEventListener('dragleave',e=>{
-    const {frame}=targets(e);
-    if(!frame) return;
+    const {slideEl}=targets(e);
+    if(!slideEl) return;
     const related=e.relatedTarget;
-    if(!related || !frame.contains(related)) cleanupTargets();
+    if(!related || !slideEl.contains(related)) cleanupTargets();
   },true);
 
   document.addEventListener('drop',async e=>{
@@ -133,8 +133,8 @@
     const files=[...(e.dataTransfer?.files||[])].filter(f=>f.type.startsWith('image/'));
     if(!files.length) return;
 
-    const {frame,media}=targets(e);
-    if(!frame) return;
+    const {slideEl,media}=targets(e);
+    if(!slideEl) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -143,13 +143,13 @@
 
     const slide=window.SLIDES[current];
 
-    // Cover is intentionally simple: the whole image frame replaces its single image.
+    // Cover: the whole slide replaces the single cover image.
     if(slide.layout==='cover'){
       await replaceCover(slide,files[0]);
       return;
     }
 
-    // Existing figure = replace exactly that figure.
+    // Existing image: replace exactly that image.
     if(media){
       const figures=[...media.parentElement.querySelectorAll(':scope > .media')];
       const index=figures.indexOf(media);
@@ -157,7 +157,7 @@
       return;
     }
 
-    // Anywhere else in the image column = append new image(s).
-    await addFilesToArea(slide,files);
+    // Any other point on a normal slide: append image(s).
+    await addFilesToSlide(slide,files);
   },true);
 })();
