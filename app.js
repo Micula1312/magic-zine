@@ -1,111 +1,12 @@
-const app = document.querySelector('#app');
-const prevBtn = document.querySelector('#prevBtn');
-const nextBtn = document.querySelector('#nextBtn');
-const fullscreenBtn = document.querySelector('#fullscreenBtn');
-const counter = document.querySelector('#counter');
-const connectFolderBtn = document.querySelector('#connectFolderBtn');
-const exportBtn = document.querySelector('#exportBtn');
-const builderStatus = document.querySelector('#builderStatus');
-
-let current = 0;
-let projectDir = null;
-const localMedia = new Map();
-
-// Prima selezione archivistica: immagini remote stabili usate solo finché la slide
-// non contiene immagini locali. In questo modo puoi sostituirle semplicemente con un drop.
-const CURATED_IMAGES = {
-  intro: ['https://commons.wikimedia.org/wiki/Special:Redirect/file/1970s_fanzines_(21224199545).jpg'],
-  'what-is-a-zine': ['https://commons.wikimedia.org/wiki/Special:Redirect/file/A_Selection_of_UK_Punk_Fanzines.jpg'],
-  'sf-fandom': ['https://fanac.org/fanzines/Comet/Comet01-cv.jpeg'],
-  punk: ['https://commons.wikimedia.org/wiki/Special:Redirect/file/1970s_fanzines_(21224199545).jpg'],
-  'punk-grammar': ['https://commons.wikimedia.org/wiki/Special:Redirect/file/A_Selection_of_UK_Punk_Fanzines.jpg'],
-  'xerox-culture': ['https://commons.wikimedia.org/wiki/Special:Redirect/file/1989-1_Skintonic_Nummer_4_-_01.jpg'],
-  contemporary: ['https://commons.wikimedia.org/wiki/Special:Redirect/file/ALMANAQUEZINE_FOTONOVELA_QR_CODE_versão_google_drive_(14.8_×_21_cm).png']
-};
-
-function pad(n) { return String(n).padStart(2, '0'); }
-function safeName(name) { return name.toLowerCase().replace(/[^a-z0-9._-]+/gi, '-'); }
-
-function imageMarkup(slide) {
-  const saved = slide.images || [];
-  const curated = saved.length ? [] : (CURATED_IMAGES[slide.id] || []);
-  const temp = localMedia.get(slide.id) || [];
-  const all = [...saved.map(src => ({src, persisted:true})), ...curated.map(src => ({src, curated:true})), ...temp];
-  if (!all.length) {
-    return `<div class="image-placeholder drop-zone" data-drop-zone><span>DROP YOUR IMAGE HERE</span><small>trascina anche una sola JPG / PNG / WEBP. Se colleghi la cartella del progetto, il file viene salvato davvero in /images/${slide.id}/</small></div>`;
-  }
-  const singleClass = all.length === 1 ? ' is-single' : '';
-  return `<div class="media-grid drop-zone${singleClass}" data-drop-zone>${all.map((item, i) => `<figure class="media${item.curated ? ' media-curated' : ''}" draggable="${item.curated ? 'false' : 'true'}" data-media-index="${i}"><img src="${item.src}" alt="" />${item.curated ? '<span class="media-source">ARCHIVE PICK</span>' : `<button class="media-remove" data-remove="${i}" aria-label="Rimuovi immagine">×</button><span class="media-handle">DRAG</span>`}</figure>`).join('')}</div>`;
-}
-
-function refsMarkup(refs = []) {
-  if (!refs.length) return '';
-  return `<div class="slide-refs">${refs.map(ref => `<a href="${ref.url}" target="_blank" rel="noreferrer">${ref.label} ↗</a>`).join('')}</div>`;
-}
-
-function render() {
-  const slide = window.SLIDES[current];
-  document.body.dataset.layout = slide.layout;
-  app.innerHTML = `<section class="slide slide-${slide.layout}" data-id="${slide.id}"><header class="slide-meta"><span>${slide.kicker || ''}</span><span class="slide-credit">MICOL GELSI</span></header><div class="slide-copy"><h1>${slide.title}</h1>${slide.text ? `<p>${slide.text}</p>` : ''}${slide.quote ? `<blockquote>${slide.quote}</blockquote>` : ''}${refsMarkup(slide.refs)}</div><div class="slide-media">${imageMarkup(slide)}</div></section>`;
-  counter.textContent = `${pad(current + 1)} / ${pad(window.SLIDES.length)}`;
-  prevBtn.disabled = current === 0;
-  nextBtn.disabled = current === window.SLIDES.length - 1;
-  location.hash = `slide-${current + 1}`;
-  bindMediaUI();
-}
-
-async function connectProjectFolder() {
-  if (!window.showDirectoryPicker) { builderStatus.textContent = 'browser senza accesso cartella: usa EXPORT SLIDES.JS'; return; }
-  try { projectDir = await window.showDirectoryPicker({mode:'readwrite'}); builderStatus.textContent = `collegata: ${projectDir.name}`; connectFolderBtn.textContent = 'CARTELLA COLLEGATA ✓'; }
-  catch (_) { builderStatus.textContent = 'collegamento annullato'; }
-}
-
-async function persistFile(slide, file) {
-  if (!projectDir) return null;
-  const imagesDir = await projectDir.getDirectoryHandle('images', {create:true});
-  const slideDir = await imagesDir.getDirectoryHandle(slide.id, {create:true});
-  let filename = safeName(file.name || `image-${Date.now()}.jpg`);
-  if (!/\.[a-z0-9]+$/i.test(filename)) filename += '.jpg';
-  const handle = await slideDir.getFileHandle(filename, {create:true});
-  const writable = await handle.createWritable(); await writable.write(file); await writable.close();
-  return `images/${slide.id}/${filename}`;
-}
-
-async function writeSlidesFile() {
-  if (!projectDir) return;
-  const handle = await projectDir.getFileHandle('slides.js', {create:true});
-  const writable = await handle.createWritable(); await writable.write(serializeSlides()); await writable.close();
-  builderStatus.textContent = 'salvato: immagini + slides.js';
-}
-
-async function addFiles(files) {
-  const slide = window.SLIDES[current];
-  const valid = [...files].filter(f => f.type.startsWith('image/'));
-  if (!valid.length) return;
-  for (const file of valid) {
-    if (projectDir) { const path = await persistFile(slide, file); slide.images = [...(slide.images || []), path]; }
-    else { const url = URL.createObjectURL(file); const temp = localMedia.get(slide.id) || []; temp.push({src:url,file,persisted:false}); localMedia.set(slide.id,temp); }
-  }
-  if (projectDir) await writeSlidesFile(); else builderStatus.textContent = 'preview locale: collega la cartella per salvarle davvero';
-  render();
-}
-
-function bindMediaUI() {
-  const zone = document.querySelector('[data-drop-zone]'); if (!zone) return;
-  ['dragenter','dragover'].forEach(type => zone.addEventListener(type,e=>{e.preventDefault();zone.classList.add('is-dragging');}));
-  ['dragleave','drop'].forEach(type => zone.addEventListener(type,e=>{e.preventDefault();zone.classList.remove('is-dragging');}));
-  zone.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
-  document.querySelectorAll('[data-remove]').forEach(btn=>btn.addEventListener('click',async e=>{e.stopPropagation();const index=Number(btn.dataset.remove);const slide=window.SLIDES[current];const persistedCount=(slide.images||[]).length;if(index<persistedCount)slide.images.splice(index,1);else{const temp=localMedia.get(slide.id)||[];const tempIndex=index-persistedCount;URL.revokeObjectURL(temp[tempIndex]?.src);temp.splice(tempIndex,1);localMedia.set(slide.id,temp);}if(projectDir)await writeSlidesFile();render();}));
-  let draggedIndex=null;
-  document.querySelectorAll('[data-media-index]').forEach(el=>{if(el.classList.contains('media-curated'))return;el.addEventListener('dragstart',()=>{draggedIndex=Number(el.dataset.mediaIndex);});el.addEventListener('dragover',e=>e.preventDefault());el.addEventListener('drop',async e=>{e.preventDefault();const targetIndex=Number(el.dataset.mediaIndex);const slide=window.SLIDES[current];if(draggedIndex===null||draggedIndex===targetIndex)return;if(draggedIndex<slide.images.length&&targetIndex<slide.images.length){const[moved]=slide.images.splice(draggedIndex,1);slide.images.splice(targetIndex,0,moved);if(projectDir)await writeSlidesFile();render();}});});
-}
-
-function serializeSlides(){return `window.SLIDES = ${JSON.stringify(window.SLIDES,null,2)};\n`;}
-function downloadSlides(){const blob=new Blob([serializeSlides()],{type:'text/javascript'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='slides.js';a.click();URL.revokeObjectURL(a.href);}
-function next(){if(current<window.SLIDES.length-1){current++;render();}}
-function prev(){if(current>0){current--;render();}}
-prevBtn.addEventListener('click',prev);nextBtn.addEventListener('click',next);connectFolderBtn.addEventListener('click',connectProjectFolder);exportBtn.addEventListener('click',downloadSlides);
-fullscreenBtn.addEventListener('click',async()=>{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();});
-document.addEventListener('keydown',event=>{if(['ArrowRight','PageDown',' '].includes(event.key)){event.preventDefault();next();}if(['ArrowLeft','PageUp'].includes(event.key)){event.preventDefault();prev();}if(event.key.toLowerCase()==='f')fullscreenBtn.click();});
-let touchStartX=0;document.addEventListener('touchstart',e=>{touchStartX=e.changedTouches[0].clientX;},{passive:true});document.addEventListener('touchend',e=>{const delta=e.changedTouches[0].clientX-touchStartX;if(Math.abs(delta)>=50)delta<0?next():prev();},{passive:true});
-const match=location.hash.match(/slide-(\d+)/);if(match)current=Math.max(0,Math.min(window.SLIDES.length-1,Number(match[1])-1));render();
+const app=document.querySelector('#app'),prevBtn=document.querySelector('#prevBtn'),nextBtn=document.querySelector('#nextBtn'),fullscreenBtn=document.querySelector('#fullscreenBtn'),counter=document.querySelector('#counter'),connectFolderBtn=document.querySelector('#connectFolderBtn'),exportBtn=document.querySelector('#exportBtn'),builderStatus=document.querySelector('#builderStatus');let current=0,projectDir=null;const localMedia=new Map();
+const CURATED_IMAGES={intro:[{src:'https://angeloferrillo.org/wp-content/uploads/2025/03/uk_and_us_zines.jpg',caption:'Fanzine UK/US · selezione storica'}],'what-is-a-zine':[{src:'https://angeloferrillo.org/wp-content/uploads/2025/03/1970s_fanzines_21224199545.jpg',caption:'Fanzine anni Settanta · dettaglio di insieme'}],'sf-fandom':[{src:'https://commons.wikimedia.org/wiki/Special:Redirect/file/%22The_Comet%22_Cover.jpg',caption:'The Comet, vol. 1 no. 1 · 1930 · cover'}],punk:[{src:'https://angeloferrillo.org/wp-content/uploads/2025/03/1970s_fanzines_21224199545.jpg',caption:'Punk / DIY fanzines · anni Settanta'}],'punk-grammar':[{src:'https://angeloferrillo.org/wp-content/uploads/2025/03/uk_and_us_zines.jpg',caption:'Cut / copy / paste · dettagli xerox'}],'italy-77':[{src:'https://www.comune.bologna.it/iperbole/asnsmp/immagini/attraverso.jpg',caption:'A/traverso · Bologna · archivio storico'}],'riot-grrrl':[{src:'https://hyperallergic.com/content/images/hyperallergic-newspack-s3-amazonaws-com/uploads/2023/10/bikini-kill.jpg',caption:'Bikini Kill: Girl Power #2 · 1991 · cover'}]};
+const pad=n=>String(n).padStart(2,'0'),safeName=n=>n.toLowerCase().replace(/[^a-z0-9._-]+/gi,'-'),norm=x=>typeof x==='string'?{src:x}:x;
+function imageMarkup(s){const saved=(s.images||[]).map(norm),curated=saved.length?[]:(CURATED_IMAGES[s.id]||[]),temp=localMedia.get(s.id)||[],all=[...saved,...curated.map(x=>({...x,curated:true})),...temp];if(!all.length)return `<div class="image-placeholder drop-zone" data-drop-zone><span>DROP YOUR IMAGE HERE</span><small>cover + dettaglio consigliati</small></div>`;return `<div class="media-grid drop-zone${all.length===1?' is-single':''}" data-drop-zone>${all.map((x,i)=>`<figure class="media${x.curated?' media-curated':''}" draggable="${x.curated?'false':'true'}" data-media-index="${i}"><img src="${x.src}" alt="${x.caption||''}">${x.caption?`<figcaption>${x.caption}</figcaption>`:''}${x.curated?'<span class="media-source">ARCHIVE PICK</span>':`<button class="media-remove" data-remove="${i}">×</button><span class="media-handle">DRAG</span>`}</figure>`).join('')}</div>`}
+const refsMarkup=(refs=[])=>refs.length?`<div class="slide-refs">${refs.map(r=>`<a href="${r.url}" target="_blank" rel="noreferrer">${r.label} ↗</a>`).join('')}</div>`:'',pointsMarkup=(p=[])=>p.length?`<ul class="slide-points">${p.map(x=>`<li>${x}</li>`).join('')}</ul>`:'';
+function render(){const s=window.SLIDES[current];document.body.dataset.layout=s.layout;app.innerHTML=`<section class="slide slide-${s.layout}" data-id="${s.id}"><header class="slide-meta"><span>${s.kicker||''}</span><span>MICOL GELSI</span></header><div class="slide-copy"><h1>${s.title}</h1>${s.text?`<p>${s.text}</p>`:''}${pointsMarkup(s.points)}${s.reference?`<div class="reference-zine"><small>ZINE DI RIFERIMENTO</small><strong>${s.reference}</strong></div>`:''}${s.quote?`<blockquote>${s.quote}</blockquote>`:''}${refsMarkup(s.refs)}</div><div class="slide-media">${imageMarkup(s)}</div></section>`;counter.textContent=`${pad(current+1)} / ${pad(window.SLIDES.length)}`;prevBtn.disabled=current===0;nextBtn.disabled=current===window.SLIDES.length-1;location.hash=`slide-${current+1}`;bindMediaUI()}
+async function connectProjectFolder(){if(!window.showDirectoryPicker){builderStatus.textContent='usa EXPORT SLIDES.JS';return}try{projectDir=await window.showDirectoryPicker({mode:'readwrite'});builderStatus.textContent=`collegata: ${projectDir.name}`;connectFolderBtn.textContent='CARTELLA COLLEGATA ✓'}catch(_){}}
+async function persistFile(s,file){const imagesDir=await projectDir.getDirectoryHandle('images',{create:true}),slideDir=await imagesDir.getDirectoryHandle(s.id,{create:true});let filename=safeName(file.name||`image-${Date.now()}.jpg`);const h=await slideDir.getFileHandle(filename,{create:true}),w=await h.createWritable();await w.write(file);await w.close();return `images/${s.id}/${filename}`}
+async function writeSlidesFile(){if(!projectDir)return;const h=await projectDir.getFileHandle('slides.js',{create:true}),w=await h.createWritable();await w.write(serializeSlides());await w.close();builderStatus.textContent='salvato'}
+async function addFiles(files){const s=window.SLIDES[current];for(const f of [...files].filter(f=>f.type.startsWith('image/'))){if(projectDir)s.images=[...(s.images||[]),await persistFile(s,f)];else{const t=localMedia.get(s.id)||[];t.push({src:URL.createObjectURL(f),file:f});localMedia.set(s.id,t)}}if(projectDir)await writeSlidesFile();render()}
+function bindMediaUI(){const z=document.querySelector('[data-drop-zone]');if(!z)return;['dragenter','dragover'].forEach(t=>z.addEventListener(t,e=>{e.preventDefault();z.classList.add('is-dragging')}));['dragleave','drop'].forEach(t=>z.addEventListener(t,e=>{e.preventDefault();z.classList.remove('is-dragging')}));z.addEventListener('drop',e=>addFiles(e.dataTransfer.files));document.querySelectorAll('[data-remove]').forEach(b=>b.onclick=async e=>{e.stopPropagation();const i=+b.dataset.remove,s=window.SLIDES[current];if(i<(s.images||[]).length)s.images.splice(i,1);if(projectDir)await writeSlidesFile();render()})}
+const serializeSlides=()=>`window.SLIDES = ${JSON.stringify(window.SLIDES,null,2)};\n`;function downloadSlides(){const b=new Blob([serializeSlides()],{type:'text/javascript'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='slides.js';a.click()}function next(){if(current<window.SLIDES.length-1){current++;render()}}function prev(){if(current>0){current--;render()}}prevBtn.onclick=prev;nextBtn.onclick=next;connectFolderBtn.onclick=connectProjectFolder;exportBtn.onclick=downloadSlides;fullscreenBtn.onclick=async()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen();document.addEventListener('keydown',e=>{if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();next()}if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev()}});const m=location.hash.match(/slide-(\d+)/);if(m)current=Math.max(0,Math.min(window.SLIDES.length-1,+m[1]-1));render();
