@@ -1,5 +1,5 @@
 window.MAGIC_ZINE_IMAGES={
-intro:[{src:'https://angeloferrillo.org/wp-content/uploads/2025/03/uk_and_us_zines.jpg',caption:'Fanzine UK / US · panoramica storica'}],
+intro:[{src:'images/Craig-Baldwin-8-1024x1024.jpg',caption:'NO MAG / ZINES · cover image'}],
 'what-is-a-zine':[{src:'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/1970s_fanzines_%2821224199545%29.jpg/960px-1970s_fanzines_%2821224199545%29.jpg',caption:'Selezione di fanzine punk e post-punk · forme e linguaggi'}],
 'amateur-press':[{src:'https://fanac.org/fanzines/Comet/Comet01-cv.jpeg',caption:'The Comet · Science Correspondence Club · cover · 1930'}],
 'sf-fandom':[{src:'https://fanac.org/fanzines/Comet/Comet01-01.jpeg',caption:'The Comet · pagina interna · 1930'}],
@@ -22,4 +22,11 @@ bibliography:[{src:'https://images-na.ssl-images-amazon.com/images/S/compressed.
 };
 Object.keys(CURATED_IMAGES).forEach(k=>delete CURATED_IMAGES[k]);
 Object.assign(CURATED_IMAGES,window.MAGIC_ZINE_IMAGES);
+
+// Repair the cover if a temporary browser blob URL was accidentally persisted.
+const introSlide=window.SLIDES.find(slide=>slide.id==='intro');
+if(introSlide && (!introSlide.images?.length || introSlide.images.some(img=>String(typeof img==='string'?img:img?.src||'').startsWith('blob:')))){
+  introSlide.images=['images/Craig-Baldwin-8-1024x1024.jpg'];
+  try{localStorage.setItem('magic-zine-slides-draft-v1',JSON.stringify(window.SLIDES));}catch(_){ }
+}
 render();
