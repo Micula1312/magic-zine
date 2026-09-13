@@ -11,18 +11,31 @@ let current = 0;
 let projectDir = null;
 const localMedia = new Map();
 
+// Prima selezione archivistica: immagini remote stabili usate solo finché la slide
+// non contiene immagini locali. In questo modo puoi sostituirle semplicemente con un drop.
+const CURATED_IMAGES = {
+  intro: ['https://commons.wikimedia.org/wiki/Special:Redirect/file/1970s_fanzines_(21224199545).jpg'],
+  'what-is-a-zine': ['https://commons.wikimedia.org/wiki/Special:Redirect/file/A_Selection_of_UK_Punk_Fanzines.jpg'],
+  'sf-fandom': ['https://fanac.org/fanzines/Comet/Comet01-cv.jpeg'],
+  punk: ['https://commons.wikimedia.org/wiki/Special:Redirect/file/1970s_fanzines_(21224199545).jpg'],
+  'punk-grammar': ['https://commons.wikimedia.org/wiki/Special:Redirect/file/A_Selection_of_UK_Punk_Fanzines.jpg'],
+  'xerox-culture': ['https://commons.wikimedia.org/wiki/Special:Redirect/file/1989-1_Skintonic_Nummer_4_-_01.jpg'],
+  contemporary: ['https://commons.wikimedia.org/wiki/Special:Redirect/file/ALMANAQUEZINE_FOTONOVELA_QR_CODE_versão_google_drive_(14.8_×_21_cm).png']
+};
+
 function pad(n) { return String(n).padStart(2, '0'); }
 function safeName(name) { return name.toLowerCase().replace(/[^a-z0-9._-]+/gi, '-'); }
 
 function imageMarkup(slide) {
   const saved = slide.images || [];
+  const curated = saved.length ? [] : (CURATED_IMAGES[slide.id] || []);
   const temp = localMedia.get(slide.id) || [];
-  const all = [...saved.map(src => ({src, persisted:true})), ...temp];
+  const all = [...saved.map(src => ({src, persisted:true})), ...curated.map(src => ({src, curated:true})), ...temp];
   if (!all.length) {
     return `<div class="image-placeholder drop-zone" data-drop-zone><span>DROP YOUR IMAGE HERE</span><small>trascina anche una sola JPG / PNG / WEBP. Se colleghi la cartella del progetto, il file viene salvato davvero in /images/${slide.id}/</small></div>`;
   }
   const singleClass = all.length === 1 ? ' is-single' : '';
-  return `<div class="media-grid drop-zone${singleClass}" data-drop-zone>${all.map((item, i) => `<figure class="media" draggable="true" data-media-index="${i}"><img src="${item.src}" alt="" /><button class="media-remove" data-remove="${i}" aria-label="Rimuovi immagine">×</button><span class="media-handle">DRAG</span></figure>`).join('')}</div>`;
+  return `<div class="media-grid drop-zone${singleClass}" data-drop-zone>${all.map((item, i) => `<figure class="media${item.curated ? ' media-curated' : ''}" draggable="${item.curated ? 'false' : 'true'}" data-media-index="${i}"><img src="${item.src}" alt="" />${item.curated ? '<span class="media-source">ARCHIVE PICK</span>' : `<button class="media-remove" data-remove="${i}" aria-label="Rimuovi immagine">×</button><span class="media-handle">DRAG</span>`}</figure>`).join('')}</div>`;
 }
 
 function refsMarkup(refs = []) {
@@ -84,7 +97,7 @@ function bindMediaUI() {
   zone.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
   document.querySelectorAll('[data-remove]').forEach(btn=>btn.addEventListener('click',async e=>{e.stopPropagation();const index=Number(btn.dataset.remove);const slide=window.SLIDES[current];const persistedCount=(slide.images||[]).length;if(index<persistedCount)slide.images.splice(index,1);else{const temp=localMedia.get(slide.id)||[];const tempIndex=index-persistedCount;URL.revokeObjectURL(temp[tempIndex]?.src);temp.splice(tempIndex,1);localMedia.set(slide.id,temp);}if(projectDir)await writeSlidesFile();render();}));
   let draggedIndex=null;
-  document.querySelectorAll('[data-media-index]').forEach(el=>{el.addEventListener('dragstart',()=>{draggedIndex=Number(el.dataset.mediaIndex);});el.addEventListener('dragover',e=>e.preventDefault());el.addEventListener('drop',async e=>{e.preventDefault();const targetIndex=Number(el.dataset.mediaIndex);const slide=window.SLIDES[current];if(draggedIndex===null||draggedIndex===targetIndex)return;if(draggedIndex<slide.images.length&&targetIndex<slide.images.length){const[moved]=slide.images.splice(draggedIndex,1);slide.images.splice(targetIndex,0,moved);if(projectDir)await writeSlidesFile();render();}});});
+  document.querySelectorAll('[data-media-index]').forEach(el=>{if(el.classList.contains('media-curated'))return;el.addEventListener('dragstart',()=>{draggedIndex=Number(el.dataset.mediaIndex);});el.addEventListener('dragover',e=>e.preventDefault());el.addEventListener('drop',async e=>{e.preventDefault();const targetIndex=Number(el.dataset.mediaIndex);const slide=window.SLIDES[current];if(draggedIndex===null||draggedIndex===targetIndex)return;if(draggedIndex<slide.images.length&&targetIndex<slide.images.length){const[moved]=slide.images.splice(draggedIndex,1);slide.images.splice(targetIndex,0,moved);if(projectDir)await writeSlidesFile();render();}});});
 }
 
 function serializeSlides(){return `window.SLIDES = ${JSON.stringify(window.SLIDES,null,2)};\n`;}
