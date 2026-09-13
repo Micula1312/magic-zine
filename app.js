@@ -21,10 +21,11 @@ function imageMarkup(slide) {
   if (!all.length) {
     return `<div class="image-placeholder drop-zone" data-drop-zone>
       <span>DROP YOUR IMAGE HERE</span>
-      <small>trascina JPG / PNG / WEBP. Se colleghi la cartella del progetto, il file viene salvato davvero in /images/${slide.id}/</small>
+      <small>trascina anche una sola JPG / PNG / WEBP. Se colleghi la cartella del progetto, il file viene salvato davvero in /images/${slide.id}/</small>
     </div>`;
   }
-  return `<div class="media-grid drop-zone" data-drop-zone>${all.map((item, i) => `
+  const singleClass = all.length === 1 ? ' is-single' : '';
+  return `<div class="media-grid drop-zone${singleClass}" data-drop-zone>${all.map((item, i) => `
     <figure class="media" draggable="true" data-media-index="${i}">
       <img src="${item.src}" alt="" />
       <button class="media-remove" data-remove="${i}" aria-label="Rimuovi immagine">×</button>
