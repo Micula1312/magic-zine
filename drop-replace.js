@@ -1,8 +1,9 @@
 // Reliable image drop behavior:
-// - drop ON an existing image => replace that exact image
-// - drop in the surrounding image area => add new image(s)
-// - on cover/final special layouts, dropping on the frame replaces the single visible image
-// - curated/default images are preserved when adding the first custom image
+// - normal slides: drop ON an existing image => replace that exact image
+// - normal slides: drop anywhere else inside .slide-media => add image(s)
+// - cover: drop anywhere inside .slide-media => replace the single cover image
+// This handler runs in capture phase and stops the older app.js drop handler,
+// so one drop can never trigger both add and replace.
 (function(){
   const asStoredItem=item=>{
     if(typeof item==='string') return item;
@@ -49,6 +50,15 @@
     render();
   }
 
+  async function replaceCover(slide,file){
+    const all=visibleSet(slide);
+    if(!all.length){
+      await addFilesToArea(slide,[file]);
+      return;
+    }
+    await replaceAt(slide,0,file);
+  }
+
   async function addFilesToArea(slide,files){
     const valid=[...files].filter(file=>file.type.startsWith('image/'));
     if(!valid.length) return;
@@ -76,65 +86,78 @@
     render();
   }
 
-  function getTargets(e){
-    const media=e.target.closest?.('.media');
-    const zone=e.target.closest?.('[data-drop-zone]');
+  function targets(e){
     const frame=e.target.closest?.('.slide-media');
-    return {media,zone,frame};
+    const media=e.target.closest?.('.media');
+    return {frame,media};
   }
 
-  function isSingleFrameReplace(slide,media,zone,frame){
-    if(media || zone || !frame) return false;
-    const count=visibleSet(slide).length;
-    return count===1 && ['cover','statement','final'].includes(slide.layout);
+  function cleanupTargets(){
+    document.querySelectorAll('.is-replace-target,.is-add-target').forEach(el=>{
+      el.classList.remove('is-replace-target','is-add-target');
+    });
   }
 
   document.addEventListener('dragover',e=>{
-    if(!editMode)return;
-    const slide=window.SLIDES[current];
-    const {media,zone,frame}=getTargets(e);
-    const frameReplace=isSingleFrameReplace(slide,media,zone,frame);
-    if(!media && !zone && !frameReplace)return;
+    if(!editMode) return;
+    const {frame,media}=targets(e);
+    if(!frame) return;
+
     e.preventDefault();
-    if(media) media.classList.add('is-replace-target');
-    if(frameReplace) frame.classList.add('is-replace-target');
-    if(e.dataTransfer)e.dataTransfer.dropEffect='copy';
+    e.stopPropagation();
+
+    const slide=window.SLIDES[current];
+    cleanupTargets();
+
+    if(slide.layout==='cover'){
+      frame.classList.add('is-replace-target');
+    }else if(media){
+      media.classList.add('is-replace-target');
+    }else{
+      frame.classList.add('is-add-target');
+    }
+
+    if(e.dataTransfer) e.dataTransfer.dropEffect='copy';
   },true);
 
   document.addEventListener('dragleave',e=>{
-    const {media,frame}=getTargets(e);
-    if(media) media.classList.remove('is-replace-target');
-    if(frame) frame.classList.remove('is-replace-target');
+    const {frame}=targets(e);
+    if(!frame) return;
+    const related=e.relatedTarget;
+    if(!related || !frame.contains(related)) cleanupTargets();
   },true);
 
   document.addEventListener('drop',async e=>{
-    if(!editMode)return;
-    const files=[...(e.dataTransfer?.files||[])].filter(f=>f.type.startsWith('image/'));
-    if(!files.length)return;
+    if(!editMode) return;
 
-    const slide=window.SLIDES[current];
-    const {media,zone,frame}=getTargets(e);
-    const frameReplace=isSingleFrameReplace(slide,media,zone,frame);
-    if(!media && !zone && !frameReplace)return;
+    const files=[...(e.dataTransfer?.files||[])].filter(f=>f.type.startsWith('image/'));
+    if(!files.length) return;
+
+    const {frame,media}=targets(e);
+    if(!frame) return;
 
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
+    cleanupTargets();
 
+    const slide=window.SLIDES[current];
+
+    // Cover is intentionally simple: the whole image frame replaces its single image.
+    if(slide.layout==='cover'){
+      await replaceCover(slide,files[0]);
+      return;
+    }
+
+    // Existing figure = replace exactly that figure.
     if(media){
-      media.classList.remove('is-replace-target');
       const figures=[...media.parentElement.querySelectorAll(':scope > .media')];
       const index=figures.indexOf(media);
       if(index>=0) await replaceAt(slide,index,files[0]);
       return;
     }
 
-    if(frameReplace){
-      frame.classList.remove('is-replace-target');
-      await replaceAt(slide,0,files[0]);
-      return;
-    }
-
+    // Anywhere else in the image column = append new image(s).
     await addFilesToArea(slide,files);
   },true);
 })();
